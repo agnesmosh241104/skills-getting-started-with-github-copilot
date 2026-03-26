@@ -20,12 +20,33 @@ document.addEventListener("DOMContentLoaded", () => {
 
         const spotsLeft = details.max_participants - details.participants.length;
 
+        const participantsList = details.participants.map(email => `<li class="participant-item" data-email="${email}" data-activity="${name}">${email} <span class="delete-icon" title="Unregister">×</span></li>`).join('');
+        const participantsSection = details.participants.length > 0
+          ? `<div class="participants-section">
+              <strong>Signed Up:</strong>
+              <ul class="participants-list">
+                ${participantsList}
+              </ul>
+            </div>`
+          : '<p class="no-participants"><em>No participants yet</em></p>';
+
         activityCard.innerHTML = `
           <h4>${name}</h4>
           <p>${details.description}</p>
           <p><strong>Schedule:</strong> ${details.schedule}</p>
           <p><strong>Availability:</strong> ${spotsLeft} spots left</p>
+          ${participantsSection}
         `;
+
+        // Add delete event listeners to participant items
+        activityCard.querySelectorAll('.delete-icon').forEach(deleteBtn => {
+          deleteBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            const email = deleteBtn.closest('.participant-item').dataset.email;
+            const activity = deleteBtn.closest('.participant-item').dataset.activity;
+            await removeParticipant(activity, email);
+          });
+        });
 
         activitiesList.appendChild(activityCard);
 
@@ -80,6 +101,42 @@ document.addEventListener("DOMContentLoaded", () => {
       console.error("Error signing up:", error);
     }
   });
+
+  // Function to remove a participant from an activity
+  async function removeParticipant(activity, email) {
+    try {
+      const response = await fetch(
+        `/activities/${encodeURIComponent(activity)}/unregister?email=${encodeURIComponent(email)}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const result = await response.json();
+
+      if (response.ok) {
+        // Refresh the activities list
+        fetchActivities();
+        messageDiv.textContent = result.message || `${email} has been unregistered`;
+        messageDiv.className = "success";
+      } else {
+        messageDiv.textContent = result.detail || "Failed to unregister student";
+        messageDiv.className = "error";
+      }
+
+      messageDiv.classList.remove("hidden");
+
+      // Hide message after 5 seconds
+      setTimeout(() => {
+        messageDiv.classList.add("hidden");
+      }, 5000);
+    } catch (error) {
+      messageDiv.textContent = "Failed to unregister student. Please try again.";
+      messageDiv.className = "error";
+      messageDiv.classList.remove("hidden");
+      console.error("Error unregistering student:", error);
+    }
+  }
 
   // Initialize app
   fetchActivities();
